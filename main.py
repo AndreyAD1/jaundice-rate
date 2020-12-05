@@ -1,10 +1,23 @@
 import asyncio
+import os.path
 
 import aiohttp
 import pymorphy2
 
 from adapters import SANITIZERS
 from text_tools import split_by_words, calculate_jaundice_rate
+
+
+POSITIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'positive_words.txt')
+NEGATIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'negative_words.txt')
+
+
+def get_charged_words():
+    charged_words = []
+    for path in [POSITIVE_WORDS_FILEPATH, NEGATIVE_WORDS_FILEPATH]:
+        with open(path, 'r') as file:
+            charged_words.extend(file.readlines())
+    return charged_words
 
 
 async def fetch(session, url):
@@ -19,8 +32,8 @@ async def main():
         plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
         morph = pymorphy2.MorphAnalyzer()
         text_words = split_by_words(morph, plain_text)
-        key_words = ['одноклассники', 'исключить', 'неправильный']
-        jaundice_rate = calculate_jaundice_rate(text_words, key_words)
+        charged_words = get_charged_words()
+        jaundice_rate = calculate_jaundice_rate(text_words, charged_words)
         print('Рейтинг: ', jaundice_rate)
         print('Слов в статье: ', len(text_words))
 
