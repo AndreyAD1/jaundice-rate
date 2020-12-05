@@ -16,7 +16,7 @@ def get_charged_words():
     charged_words = []
     for path in [POSITIVE_WORDS_FILEPATH, NEGATIVE_WORDS_FILEPATH]:
         with open(path, 'r') as file:
-            charged_words.extend(file.readlines())
+            charged_words.extend([word.strip() for word in file])
     return charged_words
 
 
