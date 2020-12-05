@@ -1,6 +1,8 @@
 import aiohttp
 import asyncio
 
+from adapters import SANITIZERS
+
 
 async def fetch(session, url):
     async with session.get(url) as response:
@@ -10,8 +12,9 @@ async def fetch(session, url):
 
 async def main():
     async with aiohttp.ClientSession() as session:
-        html = await fetch(session, 'http://example.com')
-        print(html)
+        html = await fetch(session, 'https://inosmi.ru/social/20201205/248649230.html')
+        plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
+        print(plain_text)
 
 
 asyncio.run(main())
