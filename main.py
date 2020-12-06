@@ -50,7 +50,7 @@ TEST_ARTICLES = [
 class ProcessingStatus(Enum):
     OK = 'OK'
     FETCH_ERROR = 'FETCH_ERROR'
-    ARTICLE_NOT_FOUND = 'ARTICLE_NOT_FOUND_ERROR'
+    PARSING_ERROR = 'PARSING_ERROR'
 
 
 def get_charged_words():
@@ -82,7 +82,7 @@ async def process_article(session, morph, charged_words, url, title, results):
         plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
     except exceptions.ArticleNotFound:
         title = f'No article found on "{url}"'
-        status = ProcessingStatus.ARTICLE_NOT_FOUND
+        status = ProcessingStatus.PARSING_ERROR
         score = None
         word_number = None
     else:
