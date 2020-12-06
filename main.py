@@ -1,16 +1,29 @@
+from enum import Enum
 import os.path
 
 import aiohttp
 from anyio import create_task_group, run
 import pymorphy2
 
-from adapters import SANITIZERS
+from adapters import SANITIZERS, exceptions
 from text_tools import split_by_words, calculate_jaundice_rate
 
 
 POSITIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'positive_words.txt')
 NEGATIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'negative_words.txt')
 TEST_ARTICLES = [
+    (
+        'http://google.com',
+        'Google'
+    ),
+    (
+        '$&*%JF',
+        'Fake'
+    ),
+    (
+        'https://iinvalid_url',
+        'Fake'
+    ),
     (
         'https://inosmi.ru/social/20201205/248649230.html',
         'Milliyet (Турция): смотрите, что происходит, если вы пьете две чашки липового чая в день'
@@ -34,6 +47,12 @@ TEST_ARTICLES = [
 ]
 
 
+class ProcessingStatus(Enum):
+    OK = 'OK'
+    FETCH_ERROR = 'FETCH_ERROR'
+    ARTICLE_NOT_FOUND = 'ARTICLE_NOT_FOUND_ERROR'
+
+
 def get_charged_words():
     charged_words = []
     for path in [POSITIVE_WORDS_FILEPATH, NEGATIVE_WORDS_FILEPATH]:
@@ -49,11 +68,30 @@ async def fetch(session, url):
 
 
 async def process_article(session, morph, charged_words, url, title, results):
-    html = await fetch(session, url)
-    plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
-    article_words = split_by_words(morph, plain_text)
-    score = calculate_jaundice_rate(article_words, charged_words)
-    results.append((title, score, len(article_words)))
+    try:
+        html = await fetch(session, url)
+    except (aiohttp.ClientConnectorError, aiohttp.InvalidURL):
+        title = f'URL "{url}" does not exist'
+        status = ProcessingStatus.FETCH_ERROR
+        score = None
+        word_number = None
+        results.append((title, status, score, word_number))
+        return
+
+    try:
+        plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
+    except exceptions.ArticleNotFound:
+        title = f'No article found on "{url}"'
+        status = ProcessingStatus.ARTICLE_NOT_FOUND
+        score = None
+        word_number = None
+    else:
+        article_words = split_by_words(morph, plain_text)
+        status = ProcessingStatus.OK
+        score = calculate_jaundice_rate(article_words, charged_words)
+        word_number = len(article_words)
+
+    results.append((title, status, score, word_number))
 
 
 async def main():
@@ -73,10 +111,12 @@ async def main():
                     article_features
                 )
 
-        for title, score, word_number in article_features:
+        for title, score, status, word_number in article_features:
             print('Заголовок:', title)
+            print('Статус:', status)
             print('Рейтинг:', score)
             print('Слов в статье:', word_number)
+            print()
 
 
 run(main)
