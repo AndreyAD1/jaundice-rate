@@ -1,8 +1,10 @@
+import asyncio
 from enum import Enum
 import os.path
 
 import aiohttp
 from anyio import create_task_group, run
+from async_timeout import timeout
 import pymorphy2
 
 from adapters import SANITIZERS, exceptions
@@ -45,12 +47,14 @@ TEST_ARTICLES = [
         'Helsingin Sanomat (Финляндия): почему одни зимой мерзнут, а другие — нет'
     )
 ]
+TIMEOUT_SECONDS = 10
 
 
 class ProcessingStatus(Enum):
     OK = 'OK'
     FETCH_ERROR = 'FETCH_ERROR'
     PARSING_ERROR = 'PARSING_ERROR'
+    TIMEOUT = 'TIMEOUT'
 
 
 def get_charged_words():
@@ -68,28 +72,33 @@ async def fetch(session, url):
 
 
 async def process_article(session, morph, charged_words, url, title, results):
+    status = ProcessingStatus.OK
     try:
-        html = await fetch(session, url)
+        async with timeout(TIMEOUT_SECONDS) as timeout_manager:
+            html = await fetch(session, url)
     except (aiohttp.ClientConnectorError, aiohttp.InvalidURL):
-        title = f'URL "{url}" does not exist'
+        title = f'Can not connect to "{url}"'
         status = ProcessingStatus.FETCH_ERROR
-        score = None
-        word_number = None
-        results.append((title, status, score, word_number))
-        return
+    except asyncio.TimeoutError:
+        if not timeout_manager.expired:
+            raise
+        status = ProcessingStatus.TIMEOUT
 
-    try:
-        plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
-    except exceptions.ArticleNotFound:
-        title = f'No article found on "{url}"'
-        status = ProcessingStatus.PARSING_ERROR
-        score = None
-        word_number = None
-    else:
-        article_words = split_by_words(morph, plain_text)
-        status = ProcessingStatus.OK
-        score = calculate_jaundice_rate(article_words, charged_words)
-        word_number = len(article_words)
+    score = None
+    word_number = None
+    if status == ProcessingStatus.OK:
+        try:
+            plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
+        except exceptions.ArticleNotFound:
+            title = f'No article found on "{url}"'
+            status = ProcessingStatus.PARSING_ERROR
+            score = None
+            word_number = None
+        else:
+            article_words = split_by_words(morph, plain_text)
+            status = ProcessingStatus.OK
+            score = calculate_jaundice_rate(article_words, charged_words)
+            word_number = len(article_words)
 
     results.append((title, status, score, word_number))
 
