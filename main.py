@@ -48,21 +48,19 @@ async def fetch(session, url):
         return await response.text()
 
 
-async def process_article(session, morph, charged_words, url, title):
+async def process_article(session, morph, charged_words, url, title, results):
     html = await fetch(session, url)
     plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
     article_words = split_by_words(morph, plain_text)
     score = calculate_jaundice_rate(article_words, charged_words)
-    print('Заголовок:', title)
-    print('Рейтинг:', score)
-    print('Слов в статье:', len(article_words))
-    print()
+    results.append((title, score, len(article_words)))
 
 
 async def main():
     async with aiohttp.ClientSession() as session:
         morph = pymorphy2.MorphAnalyzer()
         charged_words = get_charged_words()
+        article_features = []
         async with create_task_group() as task_group:
             for article_url, title in TEST_ARTICLES:
                 await task_group.spawn(
@@ -71,8 +69,14 @@ async def main():
                     morph,
                     charged_words,
                     article_url,
-                    title
+                    title,
+                    article_features
                 )
+
+        for title, score, word_number in article_features:
+            print('Заголовок:', title)
+            print('Рейтинг:', score)
+            print('Слов в статье:', word_number)
 
 
 run(main)
