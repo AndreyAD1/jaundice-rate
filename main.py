@@ -55,7 +55,7 @@ TEST_ARTICLES = [
     #     'Helsingin Sanomat (Финляндия): почему одни зимой мерзнут, а другие — нет'
     # )
 ]
-TIMEOUT_SECONDS = 10
+TIMEOUT_SECONDS = 3
 
 
 class ProcessingStatus(Enum):
@@ -126,13 +126,19 @@ async def process_article(session, morph, charged_words, url, title, results):
             score = None
             word_number = None
         else:
-            with timer() as process_timer:
-                article_words = split_by_words(morph, plain_text)
-
-            status = ProcessingStatus.OK
-            score = calculate_jaundice_rate(article_words, charged_words)
-            word_number = len(article_words)
-            processing_time = process_timer.timer_result
+            try:
+                async with timeout(TIMEOUT_SECONDS) as timeout_manager:
+                    article_words = await split_by_words(morph, plain_text)
+            except asyncio.TimeoutError:
+                if not timeout_manager.expired:
+                    raise
+                status = ProcessingStatus.TIMEOUT
+                processing_time = TIMEOUT_SECONDS
+            else:
+                status = ProcessingStatus.OK
+                score = calculate_jaundice_rate(article_words, charged_words)
+                word_number = len(article_words)
+                processing_time = TIMEOUT_SECONDS - timeout_manager.remaining
 
     results.append((title, status, score, word_number, processing_time))
 
