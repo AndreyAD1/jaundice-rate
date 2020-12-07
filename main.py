@@ -1,6 +1,9 @@
 import asyncio
+from contextlib import contextmanager
 from enum import Enum
+import logging
 import os.path
+import time
 
 import aiohttp
 from anyio import create_task_group, run
@@ -11,41 +14,46 @@ from adapters import SANITIZERS, exceptions
 from text_tools import split_by_words, calculate_jaundice_rate
 
 
+logger = logging.getLogger(__file__)
 POSITIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'positive_words.txt')
 NEGATIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'negative_words.txt')
 TEST_ARTICLES = [
     (
-        'http://google.com',
-        'Google'
-    ),
-    (
-        '$&*%JF',
-        'Fake'
-    ),
-    (
-        'https://iinvalid_url',
-        'Fake'
-    ),
-    (
-        'https://inosmi.ru/social/20201205/248649230.html',
-        'Milliyet (Турция): смотрите, что происходит, если вы пьете две чашки липового чая в день'
-    ),
-    (
-        'https://inosmi.ru/social/20201205/248681932.html',
-        'WirtschaftsWoche (Германия): российский женский парадокс'
-    ),
-    (
-        'https://inosmi.ru/social/20201205/248690078.html',
-        'The Wall Street Journal (США): Pfizer сократила число доз вакцины от covid-19, которые она планирует произвести до конца года'
-    ),
-    (
-        'https://inosmi.ru/politic/20201205/248690006.html',
-        'Пашиняну дали время до вторника: "Уйди в отставку!" (Haqqin, Азербайджан)'
-    ),
-    (
-        'https://inosmi.ru/social/20201205/248679078.html',
-        'Helsingin Sanomat (Финляндия): почему одни зимой мерзнут, а другие — нет'
+        'https://dvmn.org/media/filer_public/51/83/51830f54-7ec7-4702-847b-c5790ed3724c/gogol_nikolay_taras_bulba_-_bookscafenet.txt',
+        'Книга'
     )
+    # (
+    #     'http://google.com',
+    #     'Google'
+    # ),
+    # (
+    #     '$&*%JF',
+    #     'Fake'
+    # ),
+    # (
+    #     'https://iinvalid_url',
+    #     'Fake'
+    # ),
+    # (
+    #     'https://inosmi.ru/social/20201205/248649230.html',
+    #     'Milliyet (Турция): смотрите, что происходит, если вы пьете две чашки липового чая в день'
+    # ),
+    # (
+    #     'https://inosmi.ru/social/20201205/248681932.html',
+    #     'WirtschaftsWoche (Германия): российский женский парадокс'
+    # ),
+    # (
+    #     'https://inosmi.ru/social/20201205/248690078.html',
+    #     'The Wall Street Journal (США): Pfizer сократила число доз вакцины от covid-19, которые она планирует произвести до конца года'
+    # ),
+    # (
+    #     'https://inosmi.ru/politic/20201205/248690006.html',
+    #     'Пашиняну дали время до вторника: "Уйди в отставку!" (Haqqin, Азербайджан)'
+    # ),
+    # (
+    #     'https://inosmi.ru/social/20201205/248679078.html',
+    #     'Helsingin Sanomat (Финляндия): почему одни зимой мерзнут, а другие — нет'
+    # )
 ]
 TIMEOUT_SECONDS = 10
 
@@ -55,6 +63,27 @@ class ProcessingStatus(Enum):
     FETCH_ERROR = 'FETCH_ERROR'
     PARSING_ERROR = 'PARSING_ERROR'
     TIMEOUT = 'TIMEOUT'
+
+
+class Timer:
+    def __init__(self, start):
+        self.start = start
+        self.end = None
+
+    @property
+    def timer_result(self):
+        if self.end is not None:
+            return self.end - self.start
+
+
+@contextmanager
+def timer():
+    processing_start_time = time.monotonic()
+    process_timer = Timer(processing_start_time)
+    try:
+        yield process_timer
+    finally:
+        process_timer.end = time.monotonic()
 
 
 def get_charged_words():
@@ -86,21 +115,26 @@ async def process_article(session, morph, charged_words, url, title, results):
 
     score = None
     word_number = None
+    processing_time = None
     if status == ProcessingStatus.OK:
         try:
-            plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
+            # plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
+            plain_text = html
         except exceptions.ArticleNotFound:
             title = f'No article found on "{url}"'
             status = ProcessingStatus.PARSING_ERROR
             score = None
             word_number = None
         else:
-            article_words = split_by_words(morph, plain_text)
+            with timer() as process_timer:
+                article_words = split_by_words(morph, plain_text)
+
             status = ProcessingStatus.OK
             score = calculate_jaundice_rate(article_words, charged_words)
             word_number = len(article_words)
+            processing_time = process_timer.timer_result
 
-    results.append((title, status, score, word_number))
+    results.append((title, status, score, word_number, processing_time))
 
 
 async def main():
@@ -120,12 +154,16 @@ async def main():
                     article_features
                 )
 
-        for title, score, status, word_number in article_features:
+        for title, score, status, word_number, duration in article_features:
             print('Заголовок:', title)
             print('Статус:', status)
             print('Рейтинг:', score)
             print('Слов в статье:', word_number)
+            print(f'Анализ закончен за {round(duration, 2)} сек')
             print()
 
 
-run(main)
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.ERROR)
+    logger.setLevel(logging.DEBUG)
+    run(main)
