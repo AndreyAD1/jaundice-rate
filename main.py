@@ -55,7 +55,7 @@ TEST_ARTICLES = [
     #     'Helsingin Sanomat (Финляндия): почему одни зимой мерзнут, а другие — нет'
     # )
 ]
-TIMEOUT_SECONDS = 3
+TIMEOUT_SECONDS = 10
 
 
 class ProcessingStatus(Enum):
@@ -63,27 +63,6 @@ class ProcessingStatus(Enum):
     FETCH_ERROR = 'FETCH_ERROR'
     PARSING_ERROR = 'PARSING_ERROR'
     TIMEOUT = 'TIMEOUT'
-
-
-class Timer:
-    def __init__(self, start):
-        self.start = start
-        self.end = None
-
-    @property
-    def timer_result(self):
-        if self.end is not None:
-            return self.end - self.start
-
-
-@contextmanager
-def timer():
-    processing_start_time = time.monotonic()
-    process_timer = Timer(processing_start_time)
-    try:
-        yield process_timer
-    finally:
-        process_timer.end = time.monotonic()
 
 
 def get_charged_words():
