@@ -1,5 +1,6 @@
 import asyncio
 from enum import Enum
+import json
 import logging
 import os.path
 
@@ -73,13 +74,16 @@ async def process_article(session, morph, charged_words, url, results):
                 raise
             status = ProcessingStatus.TIMEOUT
             processing_time = TIMEOUT_SECONDS
+            logger.debug(
+                f'Timeout exceeded while processing an article on {url}'
+            )
 
     if status == ProcessingStatus.OK:
         score = calculate_jaundice_rate(article_words, charged_words)
         word_number = len(article_words)
         processing_time = TIMEOUT_SECONDS - timeout_manager.remaining
+        logger.debug(f'{url} has been processed in {processing_time} seconds')
 
-    logger.debug(f'{url} has been processed in {processing_time} seconds')
     results.append((url, status, score, word_number, processing_time))
 
 
@@ -90,6 +94,13 @@ async def main(request):
         return web.json_response({})
 
     url_list = urls.split(',')
+    if len(url_list) > 10:
+        error_message = 'too many urls in request, should be 10 or less'
+        logger.warning(error_message)
+        raise web.HTTPBadRequest(
+            content_type='application/json',
+            text=json.dumps({'error': error_message})
+        )
 
     async with aiohttp.ClientSession() as session:
         morph = pymorphy2.MorphAnalyzer()
