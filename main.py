@@ -46,7 +46,7 @@ async def process_article(session, morph, charged_words, url, results):
         async with timeout(TIMEOUT_SECONDS) as timeout_manager:
             html = await fetch(session, url)
     except (aiohttp.ClientConnectorError, aiohttp.InvalidURL):
-        logger.error(f'Can not connect to "{url}"')
+        logger.warning(f'Can not connect to "{url}"')
         status = ProcessingStatus.FETCH_ERROR
     except asyncio.TimeoutError:
         if not timeout_manager.expired:
@@ -61,7 +61,7 @@ async def process_article(session, morph, charged_words, url, results):
         try:
             plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
         except exceptions.ArticleNotFound:
-            logger.error(f'No article found on "{url}"')
+            logger.warning(f'No article found on "{url}"')
             status = ProcessingStatus.PARSING_ERROR
 
     if status == ProcessingStatus.OK:
@@ -79,11 +79,12 @@ async def process_article(session, morph, charged_words, url, results):
         word_number = len(article_words)
         processing_time = TIMEOUT_SECONDS - timeout_manager.remaining
 
+    logger.debug(f'{url} has been processed in {processing_time} seconds')
     results.append((url, status, score, word_number, processing_time))
 
 
 async def main(request):
-    logger.info(f'Request handling started. Request: {request}')
+    logger.info(f'Request handling started: {request}')
     urls = request.query.get('urls')
     if not urls:
         return web.json_response({})
@@ -115,5 +116,5 @@ async def main(request):
             }
             response.append(url_result)
 
-    logger.info(f'Request handling finished. Response: {response}')
+    logger.info(f'Response body: {response}')
     return web.json_response(response)
