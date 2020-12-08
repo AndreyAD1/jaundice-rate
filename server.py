@@ -6,11 +6,6 @@ from main import main
 
 logger = logging.getLogger(__file__)
 
-
-async def handle(request):
-    query_dict = {k: value.split(',') for k, value in request.query.items()}
-    return web.json_response(query_dict)
-
 application = web.Application()
 application.add_routes([web.get('/', main)])
 
