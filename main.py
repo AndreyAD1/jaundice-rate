@@ -13,7 +13,7 @@ from adapters import SANITIZERS, exceptions
 from text_tools import split_by_words, calculate_jaundice_rate
 
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger('main')
 POSITIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'positive_words.txt')
 NEGATIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'negative_words.txt')
 TIMEOUT_SECONDS = 10
@@ -46,7 +46,7 @@ async def process_article(session, morph, charged_words, url, results):
         async with timeout(TIMEOUT_SECONDS) as timeout_manager:
             html = await fetch(session, url)
     except (aiohttp.ClientConnectorError, aiohttp.InvalidURL):
-        logging.error(f'Can not connect to "{url}"')
+        logger.error(f'Can not connect to "{url}"')
         status = ProcessingStatus.FETCH_ERROR
     except asyncio.TimeoutError:
         if not timeout_manager.expired:
@@ -56,33 +56,34 @@ async def process_article(session, morph, charged_words, url, results):
     score = None
     word_number = None
     processing_time = None
+    plain_text = None
     if status == ProcessingStatus.OK:
         try:
             plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
         except exceptions.ArticleNotFound:
-            logging.error(f'No article found on "{url}"')
+            logger.error(f'No article found on "{url}"')
             status = ProcessingStatus.PARSING_ERROR
-            score = None
-            word_number = None
-        else:
-            try:
-                async with timeout(TIMEOUT_SECONDS) as timeout_manager:
-                    article_words = await split_by_words(morph, plain_text)
-            except asyncio.TimeoutError:
-                if not timeout_manager.expired:
-                    raise
-                status = ProcessingStatus.TIMEOUT
-                processing_time = TIMEOUT_SECONDS
-            else:
-                status = ProcessingStatus.OK
-                score = calculate_jaundice_rate(article_words, charged_words)
-                word_number = len(article_words)
-                processing_time = TIMEOUT_SECONDS - timeout_manager.remaining
+
+    if status == ProcessingStatus.OK:
+        try:
+            async with timeout(TIMEOUT_SECONDS) as timeout_manager:
+                article_words = await split_by_words(morph, plain_text)
+        except asyncio.TimeoutError:
+            if not timeout_manager.expired:
+                raise
+            status = ProcessingStatus.TIMEOUT
+            processing_time = TIMEOUT_SECONDS
+
+    if status == ProcessingStatus.OK:
+        score = calculate_jaundice_rate(article_words, charged_words)
+        word_number = len(article_words)
+        processing_time = TIMEOUT_SECONDS - timeout_manager.remaining
 
     results.append((url, status, score, word_number, processing_time))
 
 
 async def main(request):
+    logger.info(f'Request handling started. Request: {request}')
     urls = request.query.get('urls')
     if not urls:
         return web.json_response({})
@@ -114,4 +115,5 @@ async def main(request):
             }
             response.append(url_result)
 
+    logger.info(f'Request handling finished. Response: {response}')
     return web.json_response(response)
