@@ -133,23 +133,36 @@ async def main(request):
 
 
 @pytest.mark.parametrize(
-    'url',
+    ('expected_status_per_url'),
     [
-        'https://inosmi.ru/social/20201205/248649230.html'
+        {'https://inosmi.ru/social/20201205/248649230.html': ProcessingStatus.OK},
+        {
+            'https://inosmi.ru/social/20201205/248649230.html': ProcessingStatus.OK,
+            'https://inosmi.ru/social/20201205/248681932.html': ProcessingStatus.OK
+        },
     ],
 )
 @pytest.mark.parametrize('anyio_backend', ['asyncio'])
-async def test_process_article(anyio_backend, url):
+async def test_process_article(anyio_backend, expected_status_per_url):
     result_list = []
     async with aiohttp.ClientSession() as session:
         morph = pymorphy2.MorphAnalyzer()
         charged_words = get_charged_words()
-        await process_article(session, morph, charged_words, url, result_list)
+        async with create_task_group() as task_group:
+            for article_url in expected_status_per_url.keys():
+                await task_group.spawn(
+                    process_article,
+                    session,
+                    morph,
+                    charged_words,
+                    article_url,
+                    result_list
+                )
 
-    assert len(result_list) == 1
-    article_features = result_list[0]
-    assert len(article_features) == 5
-    returned_url, status, score, word_num, processing_time = article_features
-    assert returned_url == url
-    assert status == ProcessingStatus.OK
-    assert all([score, word_num, processing_time])
+    assert len(result_list) == len(expected_status_per_url)
+    for article_features in result_list:
+        assert len(article_features) == 5
+        url, status, score, word_num, processing_time = article_features
+        assert url in expected_status_per_url
+        assert status == expected_status_per_url[url]
+        assert all([score, word_num, processing_time])
