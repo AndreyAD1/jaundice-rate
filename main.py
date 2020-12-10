@@ -133,7 +133,7 @@ async def main(request):
 
 
 @pytest.mark.parametrize(
-    ('expected_status_per_url'),
+    'expected_status_per_url',
     [
         {'https://inosmi.ru/social/20201205/248649230.html': ProcessingStatus.OK},
         {
@@ -167,5 +167,9 @@ async def test_process_article(anyio_backend, expected_status_per_url):
         assert len(article_features) == 5
         url, status, score, word_num, processing_time = article_features
         assert url in expected_status_per_url
-        assert status == expected_status_per_url[url]
-        assert all([score, word_num, processing_time])
+        expected_status = expected_status_per_url[url]
+        assert status == expected_status
+        if expected_status == ProcessingStatus.OK:
+            assert all([score, word_num, processing_time])
+        else:
+            assert not any([score, word_num, processing_time])
