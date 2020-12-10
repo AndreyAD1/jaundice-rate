@@ -9,6 +9,7 @@ from aiohttp import web
 from anyio import create_task_group
 from async_timeout import timeout
 import pymorphy2
+import pytest
 
 from adapters import SANITIZERS, exceptions
 from text_tools import split_by_words, calculate_jaundice_rate
@@ -129,3 +130,26 @@ async def main(request):
 
     logger.info(f'Response body: {response}')
     return web.json_response(response)
+
+
+@pytest.mark.parametrize(
+    'url',
+    [
+        'https://inosmi.ru/social/20201205/248649230.html'
+    ],
+)
+@pytest.mark.parametrize('anyio_backend', ['asyncio'])
+async def test_process_article(anyio_backend, url):
+    result_list = []
+    async with aiohttp.ClientSession() as session:
+        morph = pymorphy2.MorphAnalyzer()
+        charged_words = get_charged_words()
+        await process_article(session, morph, charged_words, url, result_list)
+
+    assert len(result_list) == 1
+    article_features = result_list[0]
+    assert len(article_features) == 5
+    returned_url, status, score, word_num, processing_time = article_features
+    assert returned_url == url
+    assert status == ProcessingStatus.OK
+    assert all([score, word_num, processing_time])
