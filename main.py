@@ -142,6 +142,10 @@ async def main(request):
         },
         {
             'http://google.com': ProcessingStatus.PARSING_ERROR
+        },
+        {
+            '$&*%JF': ProcessingStatus.FETCH_ERROR,
+            'https://iinvalid_url': ProcessingStatus.FETCH_ERROR
         }
     ],
 )
@@ -172,4 +176,6 @@ async def test_process_article(anyio_backend, expected_status_per_url):
         if expected_status == ProcessingStatus.OK:
             assert all([score, word_num, processing_time])
         else:
-            assert not any([score, word_num, processing_time])
+            assert all(
+                [score is None, word_num is None, processing_time is None]
+            )
