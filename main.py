@@ -42,7 +42,14 @@ async def fetch(session, url):
         return await response.text()
 
 
-async def process_article(session, morph, charged_words, url, results):
+async def process_article(
+    session,
+    morph,
+    charged_words,
+    url,
+    results,
+    sanitizer_func
+):
     status = ProcessingStatus.OK
     try:
         async with timeout(TIMEOUT_SECONDS) as timeout_manager:
@@ -60,11 +67,12 @@ async def process_article(session, morph, charged_words, url, results):
     processing_time = None
     plain_text = None
     if status == ProcessingStatus.OK:
-        try:
-            plain_text = SANITIZERS['inosmi_ru'](html, plaintext=True)
-        except exceptions.ArticleNotFound:
-            logger.warning(f'No article found on "{url}"')
-            status = ProcessingStatus.PARSING_ERROR
+        if sanitizer_func:
+            try:
+                plain_text = sanitizer_func(html, plaintext=True)
+            except exceptions.ArticleNotFound:
+                logger.warning(f'No article found on "{url}"')
+                status = ProcessingStatus.PARSING_ERROR
 
     if status == ProcessingStatus.OK:
         try:
@@ -115,7 +123,8 @@ async def main(request):
                     morph,
                     charged_words,
                     article_url,
-                    article_features
+                    article_features,
+                    SANITIZERS['inosmi_ru']
                 )
 
         response = []
@@ -146,7 +155,14 @@ async def main(request):
         {
             '$&*%JF': ProcessingStatus.FETCH_ERROR,
             'https://iinvalid_url': ProcessingStatus.FETCH_ERROR
-        }
+        },
+        {
+            'https://iinvalid_url': ProcessingStatus.FETCH_ERROR,
+            'https://inosmi.ru/social/20201205/248649230.html': ProcessingStatus.OK,
+            'http://google.com': ProcessingStatus.PARSING_ERROR,
+            'https://inosmi.ru/social/20201205/248681932.html': ProcessingStatus.OK,
+            '$&*%JF': ProcessingStatus.FETCH_ERROR,
+        },
     ],
 )
 @pytest.mark.parametrize('anyio_backend', ['asyncio'])
@@ -163,7 +179,8 @@ async def test_process_article(anyio_backend, expected_status_per_url):
                     morph,
                     charged_words,
                     article_url,
-                    result_list
+                    result_list,
+                    SANITIZERS['inosmi_ru']
                 )
 
     assert len(result_list) == len(expected_status_per_url)
