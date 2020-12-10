@@ -48,7 +48,7 @@ async def process_article(
     charged_words,
     url,
     results,
-    sanitizer_func
+    sanitizer_func=None
 ):
     status = ProcessingStatus.OK
     try:
@@ -73,6 +73,8 @@ async def process_article(
             except exceptions.ArticleNotFound:
                 logger.warning(f'No article found on "{url}"')
                 status = ProcessingStatus.PARSING_ERROR
+        else:
+            plain_text = html
 
     if status == ProcessingStatus.OK:
         try:
@@ -196,3 +198,21 @@ async def test_process_article(anyio_backend, expected_status_per_url):
             assert all(
                 [score is None, word_num is None, processing_time is None]
             )
+
+
+@pytest.mark.parametrize('anyio_backend', ['asyncio'])
+async def test_too_big_article(anyio_backend):
+    url = 'https://dvmn.org/media/filer_public/51/83/51830f54-7ec7-4702-847b-c5790ed3724c/gogol_nikolay_taras_bulba_-_bookscafenet.txt'
+    async with aiohttp.ClientSession() as session:
+        morph = pymorphy2.MorphAnalyzer()
+        charged_words = get_charged_words()
+        result_list = []
+        await process_article(session, morph, charged_words, url, result_list)
+
+    assert len(result_list) == 1
+    article_features = result_list[0]
+    assert len(article_features) == 5
+    returned_url, status, score, word_num, processing_time = article_features
+    assert returned_url == url
+    assert status == ProcessingStatus.TIMEOUT
+    assert all([score is None, word_num is None, processing_time is None])
