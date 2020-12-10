@@ -140,6 +140,9 @@ async def main(request):
             'https://inosmi.ru/social/20201205/248649230.html': ProcessingStatus.OK,
             'https://inosmi.ru/social/20201205/248681932.html': ProcessingStatus.OK
         },
+        {
+            'http://google.com': ProcessingStatus.PARSING_ERROR
+        }
     ],
 )
 @pytest.mark.parametrize('anyio_backend', ['asyncio'])
