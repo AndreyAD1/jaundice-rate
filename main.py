@@ -18,7 +18,7 @@ from text_tools import split_by_words, calculate_jaundice_rate
 logger = logging.getLogger('main')
 POSITIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'positive_words.txt')
 NEGATIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'negative_words.txt')
-TIMEOUT_SECONDS = 10
+TIMEOUT_SECONDS = 5
 
 
 class ProcessingStatus(Enum):
@@ -215,4 +215,6 @@ async def test_too_big_article(anyio_backend):
     returned_url, status, score, word_num, processing_time = article_features
     assert returned_url == url
     assert status == ProcessingStatus.TIMEOUT
-    assert all([score is None, word_num is None, processing_time is None])
+    assert all(
+        [score is None, word_num is None, processing_time == TIMEOUT_SECONDS]
+    )
