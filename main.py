@@ -152,18 +152,18 @@ async def main(request):
             'https://inosmi.ru/social/20201205/248681932.html': ProcessingStatus.OK
         },
         {
-            'http://google.com': ProcessingStatus.PARSING_ERROR
+            'http://example.com': ProcessingStatus.PARSING_ERROR
         },
         {
-            '$&*%JF': ProcessingStatus.FETCH_ERROR,
-            'https://iinvalid_url': ProcessingStatus.FETCH_ERROR
+            'invalid_url': ProcessingStatus.FETCH_ERROR,
+            'https://absent_url.org': ProcessingStatus.FETCH_ERROR
         },
         {
-            'https://iinvalid_url': ProcessingStatus.FETCH_ERROR,
+            'https://absent_url.org': ProcessingStatus.FETCH_ERROR,
             'https://inosmi.ru/social/20201205/248649230.html': ProcessingStatus.OK,
-            'http://google.com': ProcessingStatus.PARSING_ERROR,
+            'http://example.com': ProcessingStatus.PARSING_ERROR,
             'https://inosmi.ru/social/20201205/248681932.html': ProcessingStatus.OK,
-            '$&*%JF': ProcessingStatus.FETCH_ERROR,
+            'invalid_url': ProcessingStatus.FETCH_ERROR,
         },
     ],
 )
