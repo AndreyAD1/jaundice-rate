@@ -6,7 +6,7 @@ JSON с информацией о "рейтинге желтушности" ка
 
 Пример запроса клиента:
 ```
-GET /?urls=https://inosmi.ru/social/20201205/248649230.html,example.com HTTP/1.1
+GET /?urls=https://inosmi.ru/social/20201205/248649230.html,http://example.com HTTP/1.1
 ```
 Пример ответа сервера:
 ```
