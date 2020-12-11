@@ -1,6 +1,23 @@
 # Фильтр желтушных новостей
 
-[TODO. Опишите проект, схему работы]
+Асинхронный веб-сервер, получающий от клиента запрос со списком url статей и возвращающий клиенту
+JSON с информацией о "рейтинге желтушности" каждой из статей. Рейтинг рассчитывается
+по частоте повторения в статье слов, характерных для "жёлтой" прессы.
+
+Пример запроса клиента:
+```
+GET /?urls=https://inosmi.ru/social/20201205/248649230.html,example.com HTTP/1.1
+```
+Пример ответа сервера:
+```
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Content-Length: 197
+Server: Python/3.9 aiohttp/3.7.3
+
+[{"status": "PARSING_ERROR", "url": "http://example.com", "score": null, "words_count": null}, {"status": "OK", "url": "https://inosmi.ru/social/20201205/248649230.html", "score": 0.98, "words_count": 410}]
+```
+
 
 Пока поддерживается только один новостной сайт - [ИНОСМИ.РУ](https://inosmi.ru/). Для него разработан специальный адаптер, умеющий выделять текст статьи на фоне остальной HTML разметки. Для других новостных сайтов потребуются новые адаптеры, все они будут находиться в каталоге `adapters`. Туда же помещен код для сайта ИНОСМИ.РУ: `adapters/inosmi_ru.py`.
 
@@ -19,12 +36,14 @@ pip install -r requirements.txt
 # Как запустить
 
 ```python3
-python main.py
+python server.py
 ```
 
 # Как запустить тесты
 
-Для тестирования используется [pytest](https://docs.pytest.org/en/latest/), тестами покрыты фрагменты кода сложные в отладке: text_tools.py и адаптеры. Команды для запуска тестов:
+Для тестирования используется [pytest](https://docs.pytest.org/en/latest/),
+тестами покрыты фрагменты кода сложные в отладке: text_tools.py, адаптеры и функция обработки url, полученного от клиента.
+Команды для запуска тестов:
 
 ```
 python -m pytest adapters/inosmi_ru.py
@@ -32,6 +51,10 @@ python -m pytest adapters/inosmi_ru.py
 
 ```
 python -m pytest text_tools.py
+```
+
+```
+python -m pytest main.py
 ```
 
 # Цели проекта
