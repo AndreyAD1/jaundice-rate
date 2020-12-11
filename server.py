@@ -4,7 +4,7 @@ from aiohttp import web
 
 from main import main
 
-logger = logging.getLogger('main')
+logger = logging.getLogger('server')
 
 application = web.Application()
 application.add_routes([web.get('/', main)])
