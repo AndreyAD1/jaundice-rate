@@ -117,7 +117,7 @@ async def handle_root_get_request(morph, charged_words, request):
         )
 
     async with aiohttp.ClientSession() as session:
-        article_features = []
+        processing_results = []
         async with create_task_group() as task_group:
             for article_url in requested_urls:
                 await task_group.spawn(
@@ -126,12 +126,12 @@ async def handle_root_get_request(morph, charged_words, request):
                     morph,
                     charged_words,
                     article_url,
-                    article_features,
+                    processing_results,
                     SANITIZERS['inosmi_ru']
                 )
 
         response = []
-        for url, status, score, word_number, _ in article_features:
+        for url, status, score, word_number, _ in processing_results:
             url_result = {
                 'status': status.name,
                 'url': url,
