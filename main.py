@@ -2,7 +2,7 @@ import asyncio
 from enum import Enum
 import json
 import logging
-import os.path
+import os
 
 import aiohttp
 from aiohttp import web
@@ -16,8 +16,7 @@ from text_tools import split_by_words, calculate_jaundice_rate
 
 
 logger = logging.getLogger('main')
-POSITIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'positive_words.txt')
-NEGATIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'negative_words.txt')
+
 TIMEOUT_SECONDS = 5
 
 
@@ -26,6 +25,10 @@ class ProcessingStatus(Enum):
     FETCH_ERROR = 'FETCH_ERROR'
     PARSING_ERROR = 'PARSING_ERROR'
     TIMEOUT = 'TIMEOUT'
+
+
+POSITIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'positive_words.txt')
+NEGATIVE_WORDS_FILEPATH = os.path.join('charged_dict', 'negative_words.txt')
 
 
 def get_charged_words():
@@ -98,7 +101,7 @@ async def process_article(
     results.append((url, status, score, word_number, processing_time))
 
 
-async def main(request):
+async def main(morph, charged_words, request):
     logger.info(f'Request handling started: {request}')
     urls_parameter_value = request.query.get('urls')
     if not urls_parameter_value:
@@ -114,8 +117,6 @@ async def main(request):
         )
 
     async with aiohttp.ClientSession() as session:
-        morph = pymorphy2.MorphAnalyzer()
-        charged_words = get_charged_words()
         article_features = []
         async with create_task_group() as task_group:
             for article_url in requested_urls:
