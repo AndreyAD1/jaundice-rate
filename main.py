@@ -169,7 +169,7 @@ async def main(request):
 )
 @pytest.mark.parametrize('anyio_backend', ['asyncio'])
 async def test_process_article(anyio_backend, expected_status_per_url):
-    result_list = []
+    results = []
     async with aiohttp.ClientSession() as session:
         morph = pymorphy2.MorphAnalyzer()
         charged_words = get_charged_words()
@@ -181,12 +181,12 @@ async def test_process_article(anyio_backend, expected_status_per_url):
                     morph,
                     charged_words,
                     article_url,
-                    result_list,
+                    results,
                     SANITIZERS['inosmi_ru']
                 )
 
-    assert len(result_list) == len(expected_status_per_url)
-    for article_features in result_list:
+    assert len(results) == len(expected_status_per_url)
+    for article_features in results:
         assert len(article_features) == 5
         url, status, score, word_num, processing_time = article_features
         assert url in expected_status_per_url
@@ -206,11 +206,11 @@ async def test_too_big_article(anyio_backend):
     async with aiohttp.ClientSession() as session:
         morph = pymorphy2.MorphAnalyzer()
         charged_words = get_charged_words()
-        result_list = []
-        await process_article(session, morph, charged_words, url, result_list)
+        results = []
+        await process_article(session, morph, charged_words, url, results)
 
-    assert len(result_list) == 1
-    article_features = result_list[0]
+    assert len(results) == 1
+    article_features = results[0]
     assert len(article_features) == 5
     returned_url, status, score, word_num, processing_time = article_features
     assert returned_url == url
