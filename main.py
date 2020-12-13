@@ -54,51 +54,58 @@ async def process_article(
     sanitizer_func=None
 ):
     status = ProcessingStatus.OK
+    score = None
+    word_number = None
+    processing_time = None
     try:
         async with timeout(TIMEOUT_SECONDS) as timeout_manager:
             html = await fetch(session, url)
     except (aiohttp.ClientConnectorError, aiohttp.InvalidURL):
         logger.warning(f'Can not connect to "{url}"')
         status = ProcessingStatus.FETCH_ERROR
+        output = (url, status, score, word_number, processing_time)
+        processing_outputs.append(output)
+        return
     except asyncio.TimeoutError:
         if not timeout_manager.expired:
             raise
         status = ProcessingStatus.TIMEOUT
+        output = (url, status, score, word_number, processing_time)
+        processing_outputs.append(output)
+        return
 
-    score = None
-    word_number = None
-    processing_time = None
-    plain_text = None
-    if status == ProcessingStatus.OK:
-        if sanitizer_func:
-            try:
-                plain_text = sanitizer_func(html, plaintext=True)
-            except exceptions.ArticleNotFound:
-                logger.warning(f'No article found on "{url}"')
-                status = ProcessingStatus.PARSING_ERROR
-        else:
-            plain_text = html
-
-    if status == ProcessingStatus.OK:
+    plain_text = html
+    if sanitizer_func:
         try:
-            async with timeout(TIMEOUT_SECONDS) as timeout_manager:
-                article_words = await split_by_words(morph, plain_text)
-        except asyncio.TimeoutError:
-            if not timeout_manager.expired:
-                raise
-            status = ProcessingStatus.TIMEOUT
-            processing_time = TIMEOUT_SECONDS
-            logger.debug(
-                f'Timeout exceeded while processing an article on {url}'
-            )
+            plain_text = sanitizer_func(html, plaintext=True)
+        except exceptions.ArticleNotFound:
+            logger.warning(f'No article found on "{url}"')
+            status = ProcessingStatus.PARSING_ERROR
+            output = (url, status, score, word_number, processing_time)
+            processing_outputs.append(output)
+            return
 
-    if status == ProcessingStatus.OK:
-        score = calculate_jaundice_rate(article_words, charged_words)
-        word_number = len(article_words)
-        processing_time = TIMEOUT_SECONDS - timeout_manager.remaining
-        logger.debug(f'{url} has been processed in {processing_time} seconds')
+    try:
+        async with timeout(TIMEOUT_SECONDS) as timeout_manager:
+            article_words = await split_by_words(morph, plain_text)
+    except asyncio.TimeoutError:
+        if not timeout_manager.expired:
+            raise
+        logger.debug(
+            f'Timeout exceeded while processing an article on {url}'
+        )
+        status = ProcessingStatus.TIMEOUT
+        processing_time = TIMEOUT_SECONDS
+        output = (url, status, score, word_number, processing_time)
+        processing_outputs.append(output)
+        return
 
-    processing_outputs.append((url, status, score, word_number, processing_time))
+    score = calculate_jaundice_rate(article_words, charged_words)
+    word_number = len(article_words)
+    processing_time = TIMEOUT_SECONDS - timeout_manager.remaining
+    logger.debug(f'{url} has been processed in {processing_time} seconds')
+    processing_output = (url, status, score, word_number, processing_time)
+    processing_outputs.append(processing_output)
 
 
 async def handle_root_get_request(morph, charged_words, request):
