@@ -100,12 +100,12 @@ async def process_article(
 
 async def main(request):
     logger.info(f'Request handling started: {request}')
-    urls = request.query.get('urls')
-    if not urls:
+    urls_parameter_value = request.query.get('urls')
+    if not urls_parameter_value:
         return web.json_response({})
 
-    url_list = urls.split(',')
-    if len(url_list) > 10:
+    requested_urls = urls_parameter_value.split(',')
+    if len(requested_urls) > 10:
         error_message = 'too many urls in request, should be 10 or less'
         logger.warning(error_message)
         raise web.HTTPBadRequest(
@@ -118,7 +118,7 @@ async def main(request):
         charged_words = get_charged_words()
         article_features = []
         async with create_task_group() as task_group:
-            for article_url in url_list:
+            for article_url in requested_urls:
                 await task_group.spawn(
                     process_article,
                     session,
