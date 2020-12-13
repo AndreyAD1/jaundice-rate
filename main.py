@@ -53,7 +53,6 @@ async def process_article(
     processing_outputs,
     sanitizer_func=None
 ):
-    status = ProcessingStatus.OK
     score = None
     word_number = None
     processing_time = None
@@ -91,15 +90,14 @@ async def process_article(
     except asyncio.TimeoutError:
         if not timeout_manager.expired:
             raise
-        logger.debug(
-            f'Timeout exceeded while processing an article on {url}'
-        )
+        logger.debug(f'Timeout exceeded while processing an article on {url}')
         status = ProcessingStatus.TIMEOUT
         processing_time = TIMEOUT_SECONDS
         output = (url, status, score, word_number, processing_time)
         processing_outputs.append(output)
         return
 
+    status = ProcessingStatus.OK
     score = calculate_jaundice_rate(article_words, charged_words)
     word_number = len(article_words)
     processing_time = TIMEOUT_SECONDS - timeout_manager.remaining
