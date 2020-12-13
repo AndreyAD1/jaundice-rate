@@ -194,9 +194,9 @@ async def test_process_article(anyio_backend, expected_status_per_url):
                 )
 
     assert len(processing_ouputs) == len(expected_status_per_url)
-    for article_features in processing_ouputs:
-        assert len(article_features) == 5
-        url, status, score, word_num, processing_time = article_features
+    for processing_output in processing_ouputs:
+        assert len(processing_output) == 5
+        url, status, score, word_num, processing_time = processing_output
         assert url in expected_status_per_url
         expected_status = expected_status_per_url[url]
         assert status == expected_status
@@ -214,13 +214,19 @@ async def test_too_big_article(anyio_backend):
     async with aiohttp.ClientSession() as session:
         morph = pymorphy2.MorphAnalyzer()
         charged_words = get_charged_words()
-        processing_ouputs = []
-        await process_article(session, morph, charged_words, url, processing_ouputs)
+        processing_outputs = []
+        await process_article(
+            session,
+            morph,
+            charged_words,
+            url,
+            processing_outputs
+        )
 
-    assert len(processing_ouputs) == 1
-    article_features = processing_ouputs[0]
-    assert len(article_features) == 5
-    returned_url, status, score, word_num, processing_time = article_features
+    assert len(processing_outputs) == 1
+    processing_output = processing_outputs[0]
+    assert len(processing_output) == 5
+    returned_url, status, score, word_num, processing_time = processing_output
     assert returned_url == url
     assert status == ProcessingStatus.TIMEOUT
     assert all(
