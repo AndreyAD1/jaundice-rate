@@ -5,7 +5,7 @@ import logging
 import os
 
 import aiohttp
-from aiohttp import web
+from aiohttp import web, ClientConnectorError, ClientResponseError, InvalidURL
 from anyio import create_task_group
 from async_timeout import timeout
 import pymorphy2
@@ -60,7 +60,7 @@ async def process_article(
     try:
         async with timeout(TIMEOUT_SECONDS) as timeout_manager:
             html = await fetch(session, url)
-    except (aiohttp.ClientConnectorError, aiohttp.InvalidURL):
+    except (ClientConnectorError, InvalidURL, ClientResponseError):
         logger.warning(f'Can not connect to "{url}"')
         status = ProcessingStatus.FETCH_ERROR
         output = (url, status, score, word_number, processing_time)
@@ -164,7 +164,9 @@ async def handle_root_get_request(morph, charged_words, request):
         },
         {
             'invalid_url': ProcessingStatus.FETCH_ERROR,
-            'https://absent_url.org': ProcessingStatus.FETCH_ERROR
+            'https://absent_url.org': ProcessingStatus.FETCH_ERROR,
+            'https://httpstat.us/500': ProcessingStatus.FETCH_ERROR,
+            'https://httpstat.us/400': ProcessingStatus.FETCH_ERROR
         },
         {
             'https://absent_url.org': ProcessingStatus.FETCH_ERROR,
